@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="uz">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta name="theme-color" content="#6366f1" />
+    <meta name="description" content="Maktab oquvchilar uchun elon sayti" />
+    <title>Maktab Elonlar Sayti</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Rubik:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- React + Babel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+
+    <style>
+      :root {
+        --indigo: #6366f1;
+        --indigo-dark: #4f46e5;
+        --indigo-light: #e0e7ff;
+        --green: #22c55e;
+        --yellow: #f59e0b;
+        --red: #ef4444;
+        --bg: #f5f6fa;
+        --card: #ffffff;
+        --text: #1e1b4b;
+        --muted: #6b7280;
+        --border: #e5e7eb;
+        --radius: 16px;
+        --shadow: 0 4px 24px rgba(99,102,241,0.10);
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        font-family: 'Rubik', sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+      }
+      #root { min-height: 100vh; }
+
+      /* scrollbar */
+      ::-webkit-scrollbar { width: 6px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: var(--indigo-light); border-radius: 99px; }
+
+      /* Toast */
+      .toast-wrap {
+        position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+        display: flex; flex-direction: column; gap: 10px; pointer-events: none;
+      }
+      .toast {
+        padding: 13px 20px; border-radius: 12px; font-size: 14px; font-weight: 600;
+        color: #fff; box-shadow: 0 4px 20px rgba(0,0,0,0.18);
+        animation: toastIn .3s cubic-bezier(.34,1.56,.64,1);
+        pointer-events: auto; max-width: 300px;
+      }
+      @keyframes toastIn {
+        from { transform: translateY(20px) scale(.9); opacity:0; }
+        to   { transform: translateY(0) scale(1); opacity:1; }
+      }
+      .toast.success { background: var(--green); }
+      .toast.error   { background: var(--red); }
+      .toast.info    { background: var(--indigo); }
+      .toast.warning { background: var(--yellow); }
+
+      /* Modal */
+      .modal-backdrop {
+        position: fixed; inset: 0; background: rgba(30,27,75,.45);
+        backdrop-filter: blur(4px); z-index: 800;
+        display: flex; align-items: center; justify-content: center;
+        padding: 16px;
+        animation: fadeIn .2s ease;
+      }
+      @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+      .modal-box {
+        background: var(--card); border-radius: 24px;
+        width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto;
+        padding: 32px; position: relative;
+        animation: slideUp .3s cubic-bezier(.34,1.56,.64,1);
+        box-shadow: 0 24px 60px rgba(99,102,241,0.2);
+      }
+      @keyframes slideUp {
+        from { transform: translateY(40px) scale(.95); opacity:0; }
+        to   { transform: translateY(0) scale(1); opacity:1; }
+      }
+
+      /* Inputs */
+      .inp {
+        width: 100%; padding: 12px 16px; border: 2px solid var(--border);
+        border-radius: 12px; font-size: 15px; font-family: 'Rubik', sans-serif;
+        outline: none; transition: border-color .2s, box-shadow .2s;
+        background: #fafafa; color: var(--text);
+      }
+      .inp:focus {
+        border-color: var(--indigo);
+        box-shadow: 0 0 0 4px rgba(99,102,241,.12);
+        background: #fff;
+      }
+      textarea.inp { resize: vertical; min-height: 90px; }
+
+      /* Buttons */
+      .btn {
+        padding: 12px 24px; border: none; border-radius: 12px;
+        font-size: 15px; font-weight: 700; cursor: pointer;
+        font-family: 'Rubik', sans-serif; transition: all .2s;
+        display: inline-flex; align-items: center; gap: 8px;
+      }
+      .btn:active { transform: scale(.97); }
+      .btn-primary {
+        background: var(--indigo); color: #fff;
+        box-shadow: 0 4px 14px rgba(99,102,241,.35);
+      }
+      .btn-primary:hover { background: var(--indigo-dark); box-shadow: 0 6px 20px rgba(99,102,241,.45); }
+      .btn-green { background: var(--green); color: #fff; }
+      .btn-red { background: var(--red); color: #fff; }
+      .btn-gray { background: #e5e7eb; color: #374151; }
+      .btn-gray:hover { background: #d1d5db; }
+      .btn-sm { padding: 7px 14px; font-size: 13px; border-radius: 9px; }
+
+      /* Cards */
+      .card {
+        background: var(--card); border-radius: var(--radius);
+        box-shadow: var(--shadow); border: 1px solid #f0f0ff;
+        overflow: hidden;
+      }
+
+      /* Badge */
+      .badge {
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 4px 12px; border-radius: 99px;
+        font-size: 12px; font-weight: 700; letter-spacing: .02em;
+      }
+      .badge-green  { background: #dcfce7; color: #15803d; }
+      .badge-yellow { background: #fef9c3; color: #a16207; }
+      .badge-red    { background: #fee2e2; color: #b91c1c; }
+      .badge-indigo { background: var(--indigo-light); color: var(--indigo-dark); }
+
+      /* Spinner */
+      .spinner {
+        width: 40px; height: 40px; border: 4px solid var(--indigo-light);
+        border-top-color: var(--indigo); border-radius: 50%;
+        animation: spin .8s linear infinite;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+
+      /* Elon card */
+      .elon-card {
+        background: var(--card); border-radius: 20px;
+        border: 1px solid #eef0ff; overflow: hidden;
+        transition: transform .2s, box-shadow .2s;
+        box-shadow: 0 2px 12px rgba(99,102,241,.07);
+      }
+      .elon-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 28px rgba(99,102,241,.14);
+      }
+
+      @media (max-width: 600px) {
+        .hide-mobile { display: none !important; }
+        .modal-box { padding: 22px 18px; border-radius: 20px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+    const { useState, useEffect, useCallback, useRef } = React;
+
+    // ─── CONFIG ──────────────────────────────────────────────────────────
+    const SUPABASE_URL = 'https://tcbszzsxpqlkeltsxagq.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjYnN6enN4cHFsa2VsdHN4YWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2ODg1NjgsImV4cCI6MjA4ODI2NDU2OH0.eiv51RaM3avfjWHshTSKTsjTceoQACIC1myCp2KvyHg';
+    const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const ADMINS = {
+      'owner':     { login: '15-maktabA-Za1@maktab.uz',  pass: 'admin123', role: 'owner',     name: 'Direktor' },
+      'moderator': { login: 'Elonlaradmini@gmail.uz',    pass: 'admin456', role: 'moderator', name: 'Moderator' },
+    };
+
+    const KATEGORIYALAR = ['Kitob','Kiyim','Elektronika','Sport','Maktab jihozi','Boshqa'];
+    const SINFLAR = Array.from({length:11}, (_,i) => String(i+1));
+    const HOLATLAR = { kutilmoqda: 'Kutilmoqda', tasdiqlangan: 'Tasdiqlangan', rad_etilgan: "Rad etilgan" };
+    const HOLAT_BADGE = { kutilmoqda:'badge-yellow', tasdiqlangan:'badge-green', rad_etilgan:'badge-red' };
+    const HOLAT_EMOJI = { kutilmoqda:'⏳', tasdiqlangan:'✅', rad_etilgan:'❌' };
+
+    // ─── TOAST ───────────────────────────────────────────────────────────
+    let _toastSetter = null;
+    function toast(msg, type='info') {
+      if (_toastSetter) _toastSetter(p => [...p, { id: Date.now()+Math.random(), msg, type }]);
+    }
+
+    function ToastContainer() {
+      const [toasts, setToasts] = useState([]);
+      _toastSetter = setToasts;
+      useEffect(() => {
+        if (toasts.length === 0) return;
+        const t = setTimeout(() => setToasts(p => p.slice(1)), 3200);
+        return () => clearTimeout(t);
+      }, [toasts]);
+      return (
+        <div className="toast-wrap">
+          {toasts.map(t => (
+            <div key={t.id} className={`toast ${t.type}`}>{t.msg}</div>
+          ))}
+        </div>
+      );
+    }
+
+    // ─── MODAL ───────────────────────────────────────────────────────────
+    function Modal({ onClose, title, children }) {
+      useEffect(() => {
+        const esc = e => e.key === 'Escape' && onClose();
+        document.addEventListener('keydown', esc);
+        return () => document.removeEventListener('keydown', esc);
+      }, []);
+      return (
+        <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
+          <div className="modal-box">
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:24}}>
+              <h2 style={{fontFamily:'Nunito',fontSize:22,fontWeight:800,color:'var(--text)'}}>{title}</h2>
+              <button onClick={onClose} style={{background:'#f3f4f6',border:'none',borderRadius:10,width:36,height:36,cursor:'pointer',fontSize:18,display:'flex',alignItems:'center',justifyContent:'center'}}>×</button>
+            </div>
+            {children}
+          </div>
+        </div>
+      );
+    }
+
+    // ─── INPUT HELPER ────────────────────────────────────────────────────
+    function Field({ label, children }) {
+      return (
+        <div style={{marginBottom:16}}>
+          <label style={{display:'block',fontWeight:600,fontSize:13,color:'var(--muted)',marginBottom:6,textTransform:'uppercase',letterSpacing:'.04em'}}>{label}</label>
+          {children}
+        </div>
+      );
+    }
+
+    // ─── ELON FORMA ──────────────────────────────────────────────────────
+    function ElonForma({ onClose, onSuccess }) {
+      const [f, setF] = useState({ sarlavha:'', tavsif:'', narx:'', kategoriya:'Kitob', telefon:'', sinf:'1', muallif:'' });
+      const [loading, setLoading] = useState(false);
+
+      const set = k => e => setF(p => ({...p, [k]: e.target.value}));
+
+      async function yuborish() {
+        if (!f.sarlavha.trim()) { toast('Sarlavha yozing!','warning'); return; }
+        if (!f.muallif.trim()) { toast('Ismingizni yozing!','warning'); return; }
+        setLoading(true);
+        try {
+          const { error } = await db.from('elonlar').insert([{
+            id: 'el_' + Date.now() + '_' + Math.random().toString(36).substr(2,6),
+            ...f,
+            holat: 'kutilmoqda',
+            sana: new Date().toISOString(),
+          }]);
+          if (error) throw error;
+          toast('Elon yuborildi! Tasdiqlanishini kuting ✓', 'success');
+          onSuccess?.();
+          onClose();
+        } catch(e) {
+          toast('Xato: ' + e.message, 'error');
+        } finally { setLoading(false); }
+      }
+
+      return (
+        <>
+          <Field label="Sarlavha *">
+            <input className="inp" placeholder="Masalan: 5-sinf matematika kitobi" value={f.sarlavha} onChange={set('sarlavha')} />
+          </Field>
+          <Field label="Tavsif">
+            <textarea className="inp" placeholder="Mahsulot haqida qo'shimcha ma'lumot..." value={f.tavsif} onChange={set('tavsif')} />
+          </Field>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+            <Field label="Narx">
+              <input className="inp" placeholder="15 000 so'm" value={f.narx} onChange={set('narx')} />
+            </Field>
+            <Field label="Kategoriya">
+              <select className="inp" value={f.kategoriya} onChange={set('kategoriya')}>
+                {KATEGORIYALAR.map(k => <option key={k}>{k}</option>)}
+              </select>
+            </Field>
+            <Field label="Sinf">
+              <select className="inp" value={f.sinf} onChange={set('sinf')}>
+                {SINFLAR.map(s => <option key={s}>{s}</option>)}
+              </select>
+            </Field>
+            <Field label="Telefon">
+              <input className="inp" placeholder="+998 90 123 45 67" value={f.telefon} onChange={set('telefon')} />
+            </Field>
+          </div>
+          <Field label="Ismingiz *">
+            <input className="inp" placeholder="Ism Familiya" value={f.muallif} onChange={set('muallif')} />
+          </Field>
+          <div style={{display:'flex',gap:10,marginTop:8}}>
+            <button className="btn btn-primary" style={{flex:1}} onClick={yuborish} disabled={loading}>
+              {loading ? '⏳ Yuborilmoqda...' : '📢 Elon berish'}
+            </button>
+            <button className="btn btn-gray" onClick={onClose}>Bekor</button>
+          </div>
+        </>
+      );
+    }
+
+    // ─── LOGIN FORMA ─────────────────────────────────────────────────────
+    function LoginForma({ onClose, onLogin }) {
+      const [login, setLogin] = useState('');
+      const [pass, setPass] = useState('');
+
+      function kirish() {
+        for (const a of Object.values(ADMINS)) {
+          if (a.login === login.trim() && a.pass === pass) {
+            onLogin(a);
+            return;
+          }
+        }
+        toast("Login yoki parol noto'g'ri!", 'error');
+      }
+
+      return (
+        <>
+          <Field label="Login">
+            <input className="inp" type="email" placeholder="admin@maktab.uz" value={login} onChange={e=>setLogin(e.target.value)}
+              onKeyDown={e=>e.key==='Enter'&&kirish()} />
+          </Field>
+          <Field label="Parol">
+            <input className="inp" type="password" placeholder="••••••••" value={pass} onChange={e=>setPass(e.target.value)}
+              onKeyDown={e=>e.key==='Enter'&&kirish()} />
+          </Field>
+          <div style={{display:'flex',gap:10,marginTop:8}}>
+            <button className="btn btn-primary" style={{flex:1}} onClick={kirish}>🔑 Kirish</button>
+            <button className="btn btn-gray" onClick={onClose}>Bekor</button>
+          </div>
+        </>
+      );
+    }
+
+    // ─── ELON KARTASI ────────────────────────────────────────────────────
+    function ElonKarta({ elon, admin, onDelete, onHolat }) {
+      const sana = elon.sana ? new Date(elon.sana).toLocaleDateString('uz-UZ', {day:'numeric',month:'short',year:'numeric'}) : '';
+
+      return (
+        <div className="elon-card">
+          <div style={{padding:'20px 20px 16px'}}>
+            {/* header */}
+            <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:8,marginBottom:10}}>
+              <h3 style={{fontFamily:'Nunito',fontWeight:800,fontSize:17,color:'var(--text)',lineHeight:1.3,flex:1}}>{elon.sarlavha}</h3>
+              {admin && (
+                <span className={`badge ${HOLAT_BADGE[elon.holat]||'badge-indigo'}`}>
+                  {HOLAT_EMOJI[elon.holat]} {HOLATLAR[elon.holat]}
+                </span>
+              )}
+            </div>
+
+            {/* kategoriya + sinf */}
+            <div style={{display:'flex',gap:8,marginBottom:12,flexWrap:'wrap'}}>
+              <span className="badge badge-indigo">📂 {elon.kategoriya}</span>
+              {elon.sinf && <span className="badge" style={{background:'#f0fdf4',color:'#166534'}}>🏫 {elon.sinf}-sinf</span>}
+            </div>
+
+            {elon.tavsif && (
+              <p style={{color:'var(--muted)',fontSize:14,lineHeight:1.65,marginBottom:12}}>{elon.tavsif}</p>
+            )}
+
+            {/* info row */}
+            <div style={{display:'flex',flexWrap:'wrap',gap:'8px 16px',fontSize:13,color:'var(--muted)'}}>
+              {elon.narx && <span style={{fontWeight:700,color:'#15803d',fontSize:15}}>💰 {elon.narx}</span>}
+              {elon.muallif && <span>👤 {elon.muallif}</span>}
+              {elon.telefon && (
+                <a href={`tel:${elon.telefon}`} style={{color:'var(--indigo)',fontWeight:600,textDecoration:'none'}}>
+                  📞 {elon.telefon}
+                </a>
+              )}
+              {sana && <span>📅 {sana}</span>}
+            </div>
+          </div>
+
+          {/* admin actions */}
+          {admin && (
+            <div style={{borderTop:'1px solid #f3f4f6',padding:'12px 20px',background:'#fafbff',display:'flex',gap:8,flexWrap:'wrap'}}>
+              {elon.holat !== 'tasdiqlangan' && (
+                <button className="btn btn-green btn-sm" onClick={() => onHolat(elon.id,'tasdiqlangan')}>✅ Tasdiqlash</button>
+              )}
+              {elon.holat !== 'rad_etilgan' && (
+                <button className="btn btn-sm" style={{background:'#fee2e2',color:'#b91c1c'}} onClick={() => onHolat(elon.id,'rad_etilgan')}>❌ Rad etish</button>
+              )}
+              {elon.holat !== 'kutilmoqda' && (
+                <button className="btn btn-sm btn-gray" onClick={() => onHolat(elon.id,'kutilmoqda')}>⏳ Kutilmoqda</button>
+              )}
+              <button className="btn btn-sm" style={{background:'#f3f4f6',color:'#6b7280',marginLeft:'auto'}} onClick={() => onDelete(elon.id)}>🗑️</button>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ─── STATS BAR ───────────────────────────────────────────────────────
+    function StatsBar({ elonlar }) {
+      const jami = elonlar.length;
+      const tsd = elonlar.filter(e=>e.holat==='tasdiqlangan').length;
+      const kut = elonlar.filter(e=>e.holat==='kutilmoqda').length;
+      const rad = elonlar.filter(e=>e.holat==='rad_etilgan').length;
+      const stats = [
+        {n:jami, l:'Jami', c:'var(--indigo)', bg:'var(--indigo-light)'},
+        {n:tsd,  l:'Tasdiqlangan', c:'#15803d', bg:'#dcfce7'},
+        {n:kut,  l:'Kutilmoqda',   c:'#a16207', bg:'#fef9c3'},
+        {n:rad,  l:'Rad etilgan',  c:'#b91c1c', bg:'#fee2e2'},
+      ];
+      return (
+        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10,marginBottom:20}}>
+          {stats.map(s => (
+            <div key={s.l} style={{background:s.bg,borderRadius:14,padding:'14px 12px',textAlign:'center'}}>
+              <div style={{fontSize:26,fontWeight:900,fontFamily:'Nunito',color:s.c}}>{s.n}</div>
+              <div style={{fontSize:11,fontWeight:600,color:s.c,opacity:.8,marginTop:2}}>{s.l}</div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    // ─── MAIN APP ────────────────────────────────────────────────────────
+    function App() {
+      const [elonlar, setElonlar] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [admin, setAdmin] = useState(() => {
+        try { return JSON.parse(localStorage.getItem('maktab_admin')); } catch { return null; }
+      });
+      const [modal, setModal] = useState(null); // 'elon' | 'login'
+      const [filter, setFilter] = useState('barchasi');
+      const [qidiruv, setQidiruv] = useState('');
+      const channelRef = useRef(null);
+
+      // Yuklash
+      const yukla = useCallback(async () => {
+        setLoading(true);
+        const { data, error } = await db.from('elonlar').select('*').order('created_at',{ascending:false});
+        if (error) { toast('Yuklashda xato: '+error.message,'error'); }
+        else { setElonlar(data || []); }
+        setLoading(false);
+      }, []);
+
+      // Realtime
+      useEffect(() => {
+        yukla();
+        if (channelRef.current) db.removeChannel(channelRef.current);
+        channelRef.current = db.channel('elonlar_ch')
+          .on('postgres_changes',{event:'*',schema:'public',table:'elonlar'}, payload => {
+            if (payload.eventType === 'INSERT') {
+              setElonlar(p => p.find(e=>e.id===payload.new.id) ? p : [payload.new,...p]);
+              toast('🆕 Yangi elon qo\'shildi!','info');
+            } else if (payload.eventType === 'DELETE') {
+              setElonlar(p => p.filter(e=>e.id!==payload.old.id));
+            } else if (payload.eventType === 'UPDATE') {
+              setElonlar(p => p.map(e=>e.id===payload.new.id ? payload.new : e));
+            }
+          }).subscribe();
+        return () => { if (channelRef.current) db.removeChannel(channelRef.current); };
+      }, []);
+
+      // O'chirish
+      async function ochir(id) {
+        if (!confirm("Bu elonni o'chirishni tasdiqlaysizmi?")) return;
+        const { error } = await db.from('elonlar').delete().eq('id',id);
+        if (error) toast('Xato: '+error.message,'error');
+        else { setElonlar(p=>p.filter(e=>e.id!==id)); toast("O'chirildi",'success'); }
+      }
+
+      // Holat o'zgartirish
+      async function holatOzgartir(id, holat) {
+        const { error } = await db.from('elonlar').update({holat}).eq('id',id);
+        if (error) toast('Xato: '+error.message,'error');
+        else {
+          setElonlar(p=>p.map(e=>e.id===id?{...e,holat}:e));
+          const msgs = {tasdiqlangan:'✅ Tasdiqlandi',rad_etilgan:'❌ Rad etildi',kutilmoqda:'⏳ Holat yangilandi'};
+          toast(msgs[holat]||'Yangilandi','success');
+        }
+      }
+
+      // Login
+      function login(a) {
+        setAdmin(a);
+        localStorage.setItem('maktab_admin', JSON.stringify(a));
+        toast(`Xush kelibsiz, ${a.name}! 👋`,'success');
+        setModal(null);
+      }
+      function chiqish() {
+        setAdmin(null);
+        localStorage.removeItem('maktab_admin');
+        setFilter('barchasi');
+        toast('Tizimdan chiqildi','info');
+      }
+
+      // Filter qilish
+      const korsatiluvchi = elonlar.filter(e => {
+        const korinsin = admin ? (filter==='barchasi' || e.holat===filter) : e.holat==='tasdiqlangan';
+        const qidirishMos = !qidiruv || e.sarlavha?.toLowerCase().includes(qidiruv.toLowerCase()) || e.tavsif?.toLowerCase().includes(qidiruv.toLowerCase());
+        return korinsin && qidirishMos;
+      });
+
+      return (
+        <div style={{minHeight:'100vh',background:'var(--bg)'}}>
+
+          {/* HEADER */}
+          <header style={{background:'linear-gradient(135deg,#6366f1 0%,#8b5cf6 100%)',color:'#fff',padding:'0 20px',position:'sticky',top:0,zIndex:100,boxShadow:'0 2px 20px rgba(99,102,241,.3)'}}>
+            <div style={{maxWidth:860,margin:'0 auto',display:'flex',alignItems:'center',justifyContent:'space-between',height:60}}>
+              <div style={{display:'flex',alignItems:'center',gap:10}}>
+                <span style={{fontSize:26}}>📚</span>
+                <div>
+                  <div style={{fontFamily:'Nunito',fontWeight:900,fontSize:18,letterSpacing:'-.01em'}}>Maktab Elonlar</div>
+                  <div style={{fontSize:11,opacity:.75,marginTop:-2}}>15-maktab o'quvchilar bozori</div>
+                </div>
+              </div>
+              <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                {admin ? (
+                  <>
+                    <span style={{fontSize:13,opacity:.85,fontWeight:600}} className="hide-mobile">👤 {admin.name}</span>
+                    <button className="btn btn-sm" style={{background:'rgba(255,255,255,.2)',color:'#fff',border:'1px solid rgba(255,255,255,.3)'}} onClick={chiqish}>Chiqish</button>
+                  </>
+                ) : (
+                  <button className="btn btn-sm" style={{background:'rgba(255,255,255,.2)',color:'#fff',border:'1px solid rgba(255,255,255,.3)'}} onClick={()=>setModal('login')}>🔑 Admin</button>
+                )}
+                <button className="btn btn-sm" style={{background:'#fff',color:'var(--indigo)',fontWeight:700}} onClick={()=>setModal('elon')}>
+                  + Elon berish
+                </button>
+              </div>
+            </div>
+          </header>
+
+          {/* MAIN */}
+          <main style={{maxWidth:860,margin:'0 auto',padding:'24px 16px'}}>
+
+            {/* Admin stats */}
+            {admin && <StatsBar elonlar={elonlar} />}
+
+            {/* Search + Filter */}
+            <div style={{marginBottom:20,display:'flex',flexDirection:'column',gap:12}}>
+              <input className="inp" placeholder="🔍 Elon qidirish..." value={qidiruv} onChange={e=>setQidiruv(e.target.value)}
+                style={{fontSize:15,background:'#fff'}} />
+
+              {admin && (
+                <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                  {['barchasi','kutilmoqda','tasdiqlangan','rad_etilgan'].map(f => (
+                    <button key={f} onClick={()=>setFilter(f)}
+                      className="btn btn-sm"
+                      style={{
+                        background: filter===f ? 'var(--indigo)' : '#fff',
+                        color: filter===f ? '#fff' : 'var(--muted)',
+                        border: `1.5px solid ${filter===f ? 'var(--indigo)' : 'var(--border)'}`,
+                        fontWeight: filter===f ? 700 : 500,
+                      }}>
+                      {HOLAT_EMOJI[f]||'📋'} {f==='barchasi'?'Barchasi':HOLATLAR[f]}
+                      <span style={{background:filter===f?'rgba(255,255,255,.25)':'var(--indigo-light)',color:filter===f?'#fff':'var(--indigo)',borderRadius:99,padding:'1px 7px',fontSize:11,fontWeight:700}}>
+                        {f==='barchasi' ? elonlar.length : elonlar.filter(e=>e.holat===f).length}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Elonlar */}
+            {loading ? (
+              <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'80px 0',gap:16}}>
+                <div className="spinner"></div>
+                <p style={{color:'var(--muted)',fontSize:14}}>Ma'lumotlar yuklanmoqda...</p>
+              </div>
+            ) : korsatiluvchi.length === 0 ? (
+              <div style={{textAlign:'center',padding:'80px 20px',color:'var(--muted)'}}>
+                <div style={{fontSize:64,marginBottom:16}}>📭</div>
+                <h3 style={{fontFamily:'Nunito',fontSize:20,fontWeight:800,marginBottom:8,color:'var(--text)'}}>
+                  {qidiruv ? 'Hech narsa topilmadi' : 'Hozircha elon yo\'q'}
+                </h3>
+                <p style={{fontSize:14}}>
+                  {qidiruv ? `"${qidiruv}" bo'yicha elon topilmadi` : 'Birinchi bo\'lib elon bering!'}
+                </p>
+                {!qidiruv && (
+                  <button className="btn btn-primary" style={{marginTop:20}} onClick={()=>setModal('elon')}>+ Elon berish</button>
+                )}
+              </div>
+            ) : (
+              <div style={{display:'grid',gap:14}}>
+                {korsatiluvchi.map(e => (
+                  <ElonKarta key={e.id} elon={e} admin={admin} onDelete={ochir} onHolat={holatOzgartir} />
+                ))}
+                <p style={{textAlign:'center',color:'var(--muted)',fontSize:13,padding:'8px 0'}}>
+                  {korsatiluvchi.length} ta elon ko'rsatilmoqda
+                </p>
+              </div>
+            )}
+          </main>
+
+          {/* MODALS */}
+          {modal === 'elon' && (
+            <Modal title="📢 Yangi elon berish" onClose={()=>setModal(null)}>
+              <ElonForma onClose={()=>setModal(null)} onSuccess={yukla} />
+            </Modal>
+          )}
+          {modal === 'login' && (
+            <Modal title="🔑 Admin panel" onClose={()=>setModal(null)}>
+              <LoginForma onClose={()=>setModal(null)} onLogin={login} />
+            </Modal>
+          )}
+
+          <ToastContainer />
+
+          {/* FAB - mobile uchun */}
+          <button
+            onClick={()=>setModal('elon')}
+            style={{
+              position:'fixed',bottom:24,right:24,width:56,height:56,
+              background:'linear-gradient(135deg,#6366f1,#8b5cf6)',
+              color:'#fff',border:'none',borderRadius:'50%',
+              fontSize:24,cursor:'pointer',boxShadow:'0 6px 24px rgba(99,102,241,.45)',
+              display:'flex',alignItems:'center',justifyContent:'center',
+              zIndex:500, transition:'transform .2s',
+            }}
+            onMouseEnter={e=>e.currentTarget.style.transform='scale(1.1)'}
+            onMouseLeave={e=>e.currentTarget.style.transform='scale(1)'}
+            title="Elon berish"
+          >+</button>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+  </body>
+</html>
